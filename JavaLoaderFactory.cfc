@@ -1,4 +1,4 @@
-/*
+<!--- 
 Title:      JavaLoaderFactory.cfc
 
 Source:     https://github.com/jamiekrug/JavaLoaderFactory
@@ -7,6 +7,7 @@ Author:     Jamie Krug
             http://identi.ca/jamiekrug
             http://twitter.com/jamiekrug
             http://jamiekrug.com/blog/
+			(converted to CF8-compliant tag-based structure by Rich Rein)
 
 Purpose:    Factory to provide facade to server-scoped instance of
             JavaLoader (http://javaloader.riaforge.org/).
@@ -33,99 +34,90 @@ Example usage:
 	javaLoader = getBeanFactory().getBean( 'javaLoader' );
 
 	csvReader = javaLoader.create( 'au.com.bytecode.opencsv.CSVReader' );
+ --->
 
-*/
-component hint="Factory to provide facade to server instance of JavaLoader."
-{
+<cfcomponent displayname="JavaLoaderFactory" output="false" hint="Factory to provide facade to server-scoped instance of JavaLoader (http://javaloader.riaforge.org/)">
+	<cffunction name="init" access="public" output="false" returntype="any" hint="Pseudo-constructor">
+		<cfargument name="lockTimeout" required="false" default="60" type="numeric" hint="" />
+		<cfargument name="serverKey" required="false" default="" type="string" hint="" />
+		
+		<cfset variables.lockTimeout = arguments.lockTimeout />
+		<cfset variables.serverKey = arguments.lockTimeout />
+		
+		<cfif StructKeyExists(arguments, "serverKey") and arguments.serverKey neq "">
+			<cfset variables.serverKey = arguments.serverKey />
+		</cfif>
+		
+		<cfreturn this />
+	</cffunction>
+	
+	<cffunction name="getJavaLoader" access="public" output="false" returntype="any" hint="returns a reference to the appropriate javaloader">
+		<cfargument name="loadPaths" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		<cfargument name="loadColdFusionClassPath" required="false" default="false" type="boolean" hint="" />
+		<cfargument name="parentClassLoader" required="false" default="" type="string" hint="" />
+		<cfargument name="sourceDirectories" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		<cfargument name="compileDirectory" required="false" default="" type="string" hint="" />
+		<cfargument name="trustedSource" required="false" default="false" type="boolean" hint="" />
+		<cfargument name="loadRelativePaths" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		
+		<cfset var javaLoaderInitArgs = buildJavaLoaderInitArgs(argumentCollection = arguments) />
 
-	/********** CONSTRUCTOR ***************************************************/
+		<cfset var _serverKey = calculateServerKey(javaLoaderInitArgs) />
 
-	function init( numeric lockTimeout = 60, string serverKey )
-	{
-		variables.lockTimeout = arguments.lockTimeout;
+		<cfif not structKeyExists(server, _serverKey)>
+			<cflock name="server.#_serverKey#" timeout="#variables.lockTimeout#">
+				<cfif not structKeyExists(server, _serverKey)>
+					<cfset server[ _serverKey ] = createObject('component', 'com.compoundtheory.JavaLoader').init(argumentCollection = javaLoaderInitArgs) />
+				</cfif>
+			</cflock>
+		</cfif>
 
-		if ( structKeyExists( arguments, 'serverKey' ) )
-			variables.serverKey = arguments.serverKey;
+		<cfreturn server[ _serverKey ] />
+	</cffunction>
 
-		return this;
-	}
+	<cffunction name="buildJavaLoaderInitArgs" access="private" output="false" returntype="struct" hint="">
+		<cfargument name="loadPaths" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		<cfargument name="loadColdFusionClassPath" required="false" default="false" type="boolean" hint="" />
+		<cfargument name="parentClassLoader" required="false" default="" type="string" hint="" />
+		<cfargument name="sourceDirectories" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		<cfargument name="compileDirectory" required="false" default="" type="string" hint="" />
+		<cfargument name="trustedSource" required="false" default="false" type="boolean" hint="" />
+		<cfargument name="loadRelativePaths" required="false" default="#ArrayNew(1)#" type="array" hint="" />
+		
+		<cfset var initArgs = {} />
+		<cfset var argName = "" />
+		<cfset var lstPossibleArgs = "loadPaths,loadColdFusionClassPath,parentClassLoader,sourceDirectories,compileDirectory,trustedSource" />
+		<cfset var relPath = "" />
 
+		<cfloop index="argName" list="#lstPossibleArgs#"> 
+			<cfif structKeyExists(arguments, argName)>
+				<cfset initArgs[ argName ] = arguments[ argName ] />
+			</cfif>
+		</cfloop>
 
-	/********** PUBLIC ********************************************************/
+		<cfif structKeyExists( arguments, 'loadRelativePaths' ) && arrayLen( arguments.loadRelativePaths )>
+			<cfif not structKeyExists( initArgs, 'loadPaths' )>
+				<cfset initArgs.loadPaths = [] />
+			</cfif>
 
+			<cfloop index="relPath" array="#arguments.loadRelativePaths#">
+				<cfset arrayAppend(initArgs.loadPaths, expandPath(relPath)) />
+			</cfloop>
+		</cfif>
 
-	function getJavaLoader(
-		array loadPaths,
-		boolean loadColdFusionClassPath,
-		string parentClassLoader,
-		array sourceDirectories,
-		string compileDirectory,
-		boolean trustedSource,
-		array loadRelativePaths
-		)
-	{
-		var javaLoaderInitArgs = buildJavaLoaderInitArgs( argumentCollection = arguments );
+		<cfreturn initArgs />
+	</cffunction>
 
-		var _serverKey = calculateServerKey( javaLoaderInitArgs );
+	<cffunction name="calculateServerKey" access="private" output="false" returntype="string" hint="">
+		<cfargument name="javaLoaderInitArgs" required="false" default="" type="struct" hint="" />
 
-		if ( !structKeyExists( server, _serverKey ) )
-		{
-			lock name='server.#_serverKey#' timeout='#variables.lockTimeout#'
-			{
-				if ( !structKeyExists( server, _serverKey ) )
-					server[ _serverKey ] = createObject( 'component', 'javaloader.JavaLoader' ).init( argumentCollection = javaLoaderInitArgs );
-			}
-		}
+		<!--- variables.serverKey takes precedence, if exists --->
+		<cfif structKeyExists(variables, "serverKey")>
+			<cfreturn variables.serverKey />
+		</cfif>
 
-		return server[ _serverKey ];
-	}
-
-
-	/********** PRIVATE *******************************************************/
-
-
-	private struct function buildJavaLoaderInitArgs(
-		array loadPaths,
-		boolean loadColdFusionClassPath,
-		string parentClassLoader,
-		array sourceDirectories,
-		string compileDirectory,
-		boolean trustedSource,
-		array loadRelativePaths
-		)
-	{
-		var initArgs = {};
-
-		for ( var argName in [ 'loadPaths', 'loadColdFusionClassPath', 'parentClassLoader', 'sourceDirectories', 'compileDirectory', 'trustedSource'  ] )
-		{
-			if ( structKeyExists( arguments, argName ) )
-				initArgs[ argName ] = arguments[ argName ];
-		}
-
-		if ( structKeyExists( arguments, 'loadRelativePaths' ) && arrayLen( arguments.loadRelativePaths ) )
-		{
-			if ( !structKeyExists( initArgs, 'loadPaths' ) )
-				initArgs.loadPaths = [];
-
-			for ( var relPath in arguments.loadRelativePaths )
-			{
-				arrayAppend( initArgs.loadPaths, expandPath( relPath ) );
-			}
-		}
-
-		return initArgs;
-	}
-
-
-	private string function calculateServerKey( struct javaLoaderInitArgs )
-	{
-		// variables.serverKey takes precedence, if exists
-		if ( structKeyExists( variables, 'serverKey' ) )
-			return variables.serverKey;
-
-		// hash init args, to generate unique key based on precise JavaLoader instance
-		return hash( serializeJSON( { javaLoader = arguments.javaLoaderInitArgs } ) );
-	}
-
-
-}
+		<!--- hash init args, to generate unique key based on precise JavaLoader instance --->
+		<cfreturn "VTSObjects" />
+		<!--- <cfreturn hash(serializeJSON({javaLoader = arguments.javaLoaderInitArgs})) /> --->
+	</cffunction>
+</cfcomponent>
