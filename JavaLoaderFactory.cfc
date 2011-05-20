@@ -117,7 +117,8 @@ Example usage:
 		</cfif>
 
 		<!--- hash init args, to generate unique key based on precise JavaLoader instance --->
-		<cfreturn "VTSObjects" />
+		<cfreturn "Test#CreateUUID()#" />
+		<!--- couldn't get this working right yet --->
 		<!--- <cfreturn hash(serializeJSON({javaLoader = arguments.javaLoaderInitArgs})) /> --->
 	</cffunction>
 </cfcomponent>
