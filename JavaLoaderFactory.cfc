@@ -63,8 +63,6 @@ Example usage:
 		<cfset var javaLoaderInitArgs = buildJavaLoaderInitArgs(argumentCollection = arguments) />
 		<cfset var _serverKey = calculateServerKey(javaLoaderInitArgs) />
 		
-		<cflog file="#application.applicationname#" text="[JavaLoaderFactory] *com.compoundtheory.JavaLoader* serverkey: #_serverKey#" />
-		
 		<cfif not structKeyExists(server, _serverKey)>
 			<cflock name="server.#_serverKey#" timeout="#variables.lockTimeout#">
 				<cfif not structKeyExists(server, _serverKey)>
