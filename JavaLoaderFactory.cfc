@@ -42,7 +42,7 @@ Example usage:
 		<cfargument name="serverKey" required="false" default="" type="string" hint="" />
 		
 		<cfset variables.lockTimeout = arguments.lockTimeout />
-		<cfset variables.serverKey = arguments.lockTimeout />
+		<cfset variables.serverKey = arguments.serverKey />
 		
 		<cfif StructKeyExists(arguments, "serverKey") and arguments.serverKey neq "">
 			<cfset variables.serverKey = arguments.serverKey />
@@ -61,9 +61,8 @@ Example usage:
 		<cfargument name="loadRelativePaths" required="false" default="#ArrayNew(1)#" type="array" hint="" />
 		
 		<cfset var javaLoaderInitArgs = buildJavaLoaderInitArgs(argumentCollection = arguments) />
-
 		<cfset var _serverKey = calculateServerKey(javaLoaderInitArgs) />
-
+		
 		<cfif not structKeyExists(server, _serverKey)>
 			<cflock name="server.#_serverKey#" timeout="#variables.lockTimeout#">
 				<cfif not structKeyExists(server, _serverKey)>
@@ -112,13 +111,11 @@ Example usage:
 		<cfargument name="javaLoaderInitArgs" required="false" default="" type="struct" hint="" />
 
 		<!--- variables.serverKey takes precedence, if exists --->
-		<cfif structKeyExists(variables, "serverKey")>
+		<cfif structKeyExists(variables, "serverKey") and variables.serverKey neq "">
 			<cfreturn variables.serverKey />
 		</cfif>
-
+		
 		<!--- hash init args, to generate unique key based on precise JavaLoader instance --->
-		<cfreturn "Test#CreateUUID()#" />
-		<!--- couldn't get this working right yet --->
-		<!--- <cfreturn hash(serializeJSON({javaLoader = arguments.javaLoaderInitArgs})) /> --->
+		<cfreturn hash(serializeJSON(arguments.javaLoaderInitArgs)) />
 	</cffunction>
 </cfcomponent>
